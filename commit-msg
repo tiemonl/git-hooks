@@ -3,14 +3,14 @@
 
 ### Github Issue###
 TICKET_PATTERN='GH-[0-9]+'
-TICKET_BASE_URL=$(git config --get remote.origin.url | sed 's/....$//' | awk '{print $1"/issues/"}')
+TICKET_BASE_URL=$(git config --get remote.origin.url | sed "s/....$//" | awk '{print $1"/issues/"}')
 NO_TICKET_KEYWORD='NOGH'
 EXEMPTION_KEYWORDS='^Merge|^Revert'
 
 ### unrelated ###
 BRANCH_EXEMPTION_PATTERN='dev|release.*|hotfix.*'
 
-branch=$(git branch | egrep '\*' | sed 's/\* //g')
+branch=$(git branch | egrep '\*' | sed "s/\* //g")
 currentCommitMessage=$(head -n 1 $1)
 
 isExempt=true
@@ -51,11 +51,11 @@ if [ "$isBranchNonCompliant" = true ] && [ "$isCommitCompliant" = false ] ; then
     echo 'Cannot find ticket in branch name, assuming NOGH:' $branch
     ticket=$NO_TICKET_KEYWORD
 else
-    ticket=$(sed -E "s/$GREP_PATTERN_START($TICKET_PATTERN)$GREP_PATTERN_END/\1/g" <<< $branch)
+    ticket=$(echo $branch | sed -E "s/.*($TICKET_PATTERN).*/\1/g")
 fi
 
 if $isCommitCompliant ; then
-    commitTicket=$(sed -E "s/$TICKET_SUFFIX$COMMIT_PATTERN_END//" <<< $currentCommitMessage)
+    commitTicket=$(sed -E "s/${TICKET_SUFFIX}${COMMIT_PATTERN_END}//" <<< $currentCommitMessage)
     if [[ "$ticket" != "$commitTicket" ]]; then
         echo "Ticket in commit does not match branch ($commitTicket != $ticket), will not rewrite commit."
         exit 0
@@ -63,12 +63,13 @@ if $isCommitCompliant ; then
     exit 0
 fi
 
-ticketId=$ticket
+ticketId=$(echo $ticket | sed "s/.*-//g")
 newMessage="$ticket$TICKET_SUFFIX$currentCommitMessage"
 outputTicket=$ticket
 if [[ "$ticket" != "$NO_TICKET_KEYWORD" ]]; then
     outputTicket="$ticket: $TICKET_BASE_URL$ticketId"
 fi
 echo 'Rewriting commit to use ticket ' $outputTicket
-sed -i.bak "1s/.*/$newMessage/" $1
+echo $newMessage > $1
+#sed -i.bak -e "1s/.*/$newMessage/" $1
 exit 0
